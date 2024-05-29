@@ -1,26 +1,25 @@
-# Importar Bilbioteca
+# Importar Bibliotecas
 from deepface import DeepFace
 import pandas as pd
-from paho.mqtt import client as mqtt_client
+import paho.mqtt.client as mqtt_client
 import random
 import time
 import argparse
 
 # Parser
 parser = argparse.ArgumentParser()
-parser.add_argument("img_src", help="Imagen a buscar en la DB del caras")
+parser.add_argument("img_src", help="Imagen a buscar en la DB de caras")
 parser.add_argument("db_path", help="Ruta de la base de datos de caras")
 args = parser.parse_args()
 
 # Variables y constantes
-broker = '127.0.0.1'
+broker = 'broker.hivemq.com'
 port = 1883
 topic = "codigoIoT/mqtt/python"
 topic2 = "codigoIoT/mqtt/index"
-# generate client ID with pub prefix randomly
-client_id = f'python-mqtt-{random.randint(0, 1000)}'
+client_id = "007"  # Cliente fijo para identificar la conexión
 
-# Conexion al broker
+# Conexión al broker MQTT
 def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
@@ -28,20 +27,18 @@ def connect_mqtt():
         else:
             print("Failed to connect, return code %d\n", rc)
 
-    client = mqtt_client.Client(client_id)
-    # client.username_pw_set(username, password)
+    # Especificar el callback_api_version
+    client = mqtt_client.Client(client_id=client_id, protocol=mqtt_client.MQTTv311)
     client.on_connect = on_connect
     client.connect(broker, port)
     return client
 
 def publish(client, mensaje):
-    #while True:
     time.sleep(1)
     msg = mensaje
     result = client.publish(topic, msg)
     time.sleep(1)
-    print (result)
-    # result: [0, 1]
+    print(result)
     status = result[0]
     if status == 0:
         print(f"Send `{msg}` to topic `{topic}`")
@@ -50,22 +47,44 @@ def publish(client, mensaje):
 
 ### Inicio del programa
 # Buscar Rostro
-print ("Buscando rostro")
+print("Buscando rostro")
 
-# df = DeepFace.find(img_path = "img1.jpg", db_path = "C:/workspace/my_db")
-df = DeepFace.find (img_path = args.img_src, db_path = args.db_path, enforce_detection = "false")
-print ("Resultado ")
-print (df)
-#json_view = df.to_json(orient="index")
-#json_view = df.to_json()
+# models = [
+#   "VGG-Face", 
+#   "Facenet", 
+#   "Facenet512", 
+#   "OpenFace", 
+#   "DeepFace", 
+#   "DeepID", 
+#   "ArcFace", 
+#   "Dlib", 
+#   "SFace",
+#   "GhostFaceNet",
+# ]
+
+# metrics = ["cosine", "euclidean", "euclidean_l2"]
+
+df = DeepFace.find(img_path=args.img_src, db_path=args.db_path,enforce_detection=False)
+print("Resultado ")
+print(df)
+
+# Convertir el DataFrame a JSON
 df = pd.concat(df, ignore_index=True)
 json_view = df.to_json()
-print ("La expresion en JSON de los resultados es: ")
-print (df)
+print("La expresion en JSON de los resultados es: ")
+print(df)
 
-
-# Envio
+# Enviar mensaje MQTT
 client = connect_mqtt()
 client.loop_start()
 publish(client, json_view)
+
+
+
+
+#client = connect_mqtt()
+#print(type(client))  # Debería imprimir <class 'paho.mqtt.client.Client'>
+#client.loop_start()
+
+
 
